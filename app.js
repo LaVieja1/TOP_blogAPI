@@ -3,11 +3,31 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const compression = require('compression');
+const helmet = require('helmet');
+
+const passport = require('passport');
+const localStrategy = require('passport-local').Strategy;
+const JWTstrategy = require('passport-jwt').Strategy;
+const ExtractJWT = require('passport-jwt').ExtractJwt;
+
+const Author = require('./models/author');
+require('dotenv').config();
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 
-var app = express();
+mongoose.set("strictQuery", false);
+const mongoDB = process.env.DB_URL;
+main().catch((err) => console.log(err));
+async function main() {
+  await mongoose.connect(mongoDB)
+  console.log("mongodb is connected");
+}
+
+const app = express();  
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
