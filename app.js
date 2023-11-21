@@ -16,8 +16,73 @@ const ExtractJWT = require('passport-jwt').ExtractJwt;
 const Author = require('./models/author');
 require('dotenv').config();
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+// Passport auth
+passport.use(
+  "login",
+  new localStrategy(
+    {
+      usernameField: "username",
+      passwordField: "password",
+    },
+    async (username, password, done) => {
+      try {
+        const user = await Author.findOne({ username });
+
+        if (!user) {
+          return done(null, false, { message: "Usuario no encontrado" });
+        }
+
+        const validate = await user.isValidPassword(password);
+
+        if (!validate) {
+          return done(null, false, { message: "Contraseña incorrecta" });
+        }
+
+        return done(null, user, { message: "Login exitoso" });
+      } catch (error) {
+        return done(error);
+      }
+    }
+  )
+);
+
+passport.use(
+  new JWTstrategy(
+    {
+      secretOrKey: process.env.SECRET,
+      jwtFromRequest: ExtractJWT.fromAuthHeaderAsBearerToken(),
+    },
+    async (token, done) => {
+      try {
+        return done(null, token.user);
+      } catch (error) {
+        done(error);
+      }
+    }
+  )
+);
+
+passport.use(
+  "signup",
+  new localStrategy(
+    {
+      usernameField: "username",
+      passwordField: "password",
+    },
+    async (username, password, done) => {
+      try {
+        const user = await Author.create({ username, password });
+
+        return done(null, user);
+      } catch (error) {
+        done(error);
+      }
+    }
+  )
+);
+
+const indexRouter = require('./routes/index');
+const apiRouter = require('./routes/api');
 
 mongoose.set("strictQuery", false);
 const mongoDB = process.env.DB_URL;
@@ -33,6 +98,9 @@ const app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
+app.use(helmet());
+app.use(compression());
+app.use(cors());
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -40,7 +108,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
+app.use('/api', apiRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
